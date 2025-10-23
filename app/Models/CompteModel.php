@@ -32,4 +32,31 @@ class CompteModel extends Model
     {
         return $this->belongsTo(ClientModel::class, 'client_id');
     }
+
+    /**
+     * Scope pour récupérer les comptes non supprimés (statut != ferme).
+     */
+    public function scopeNonSupprimes($query)
+    {
+        return $query->where('statut', '!=', 'ferme');
+    }
+
+    /**
+     * Scope pour récupérer un compte par son numéro.
+     */
+    public function scopeNumero($query, $numero)
+    {
+        return $query->where('numeroCompte', $numero);
+    }
+
+    /**
+     * Scope pour récupérer les comptes d'un client basé sur le nom ou email.
+     */
+    public function scopeClient($query, $search)
+    {
+        return $query->whereHas('client.user', function ($q) use ($search) {
+            $q->where('name', 'like', '%' . $search . '%')
+              ->orWhere('email', 'like', '%' . $search . '%');
+        });
+    }
 }
