@@ -9,6 +9,14 @@ use App\Http\Resources\CompteResource;
 use App\Http\Resources\PaginationResource;
 use Illuminate\Http\Request;
 
+/**
+ * @OA\Info(
+ *     title="API Gestion Bancaire",
+ *     version="1.0.0",
+ *     description="API de gestion bancaire pour la liste des comptes."
+ * )
+ */
+
 class CompteController extends Controller
 {
     use ApiResponseTrait;

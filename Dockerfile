@@ -1,56 +1,81 @@
-FROM php:8.3-cli
+# Étape 1: Build des dépendances PHP
+FROM composer:2.6 AS composer-build
 
-# Arguments (optional for local build caching)
-ARG user=laravel
-ARG uid=1000
+WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libzip-dev \
-    libpq-dev \
-    zip \
-    unzip && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
-
-# Get latest Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Set working directory
-WORKDIR /var/www
-
-# Copy only composer files first to leverage Docker layer cache
+# Copier les fichiers de dépendances
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies (no-dev for production) without running scripts yet (artisan not copied)
-RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --no-scripts --optimize-autoloader
+# Installer les dépendances PHP sans scripts post-install
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
 
-# Copy application code
+# Étape 2: Image finale pour l'application
+FROM php:8.3-fpm-alpine
+
+# Installer les extensions PHP nécessaires
+RUN apk add --no-cache postgresql-dev \
+    && docker-php-ext-install pdo pdo_pgsql
+
+# Créer un utilisateur non-root
+RUN addgroup -g 1000 laravel && adduser -G laravel -g laravel -s /bin/sh -D laravel
+
+# Définir le répertoire de travail
+WORKDIR /var/www/html
+
+# Copier les dépendances installées depuis l'étape de build
+COPY --from=composer-build /app/vendor ./vendor
+
+# Copier le reste du code de l'application
 COPY . .
 
-# Now that artisan exists, finalize autoload and run post-autoload scripts
-RUN composer dump-autoload --optimize --no-dev --no-interaction && \
-    composer run-script post-autoload-dump || true
+# Créer les répertoires nécessaires et définir les permissions
+RUN mkdir -p storage/framework/{cache,data,sessions,testing,views} \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache \
+    && chown -R laravel:laravel /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
 
-# Ensure storage and cache directories are writable
-RUN mkdir -p storage bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R ug+rwx storage bootstrap/cache
+# Créer un fichier .env minimal pour le build
+RUN echo "APP_NAME=Laravel" > .env && \
+    echo "APP_ENV=production" >> .env && \
+    echo "APP_KEY=" >> .env && \
+    echo "APP_DEBUG=false" >> .env && \
+    echo "APP_URL=http://localhost" >> .env && \
+    echo "" >> .env && \
+    echo "LOG_CHANNEL=stack" >> .env && \
+    echo "LOG_LEVEL=error" >> .env && \
+    echo "" >> .env && \
+    echo "DB_CONNECTION=pgsql" >> .env && \
+    echo "DB_HOST=dpg-d3tbv33ipnbc7384g2kg-a" >> .env && \
+    echo "DB_PORT=5432" >> .env && \
+    echo "DB_DATABASE=gestion_bancaire_fqdq" >> .env && \
+    echo "DB_USERNAME=gestion_bancaire_fqdq_user" >> .env && \
+    echo "DB_PASSWORD=aZueE4EOiuxRYSpp0EcGoMeAMgs60MAS" >> .env && \,
+    echo "" >> .env && \
+    echo "CACHE_DRIVER=file" >> .env && \
+    echo "SESSION_DRIVER=file" >> .env && \
+    echo "QUEUE_CONNECTION=sync" >> .env
 
-# Do not generate caches at build-time to avoid stale env (APP_KEY/DB)
-# Keep only storage symlink
-RUN php artisan storage:link || true
+# Changer les permissions du fichier .env pour l'utilisateur laravel
+RUN chown laravel:laravel .env
 
-# Expose and use Render's PORT
-ENV PORT=8080
-EXPOSE 8080
+# Générer la clé d'application et optimiser
+USER laravel
+RUN php artisan key:generate --force && \
+    php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache
+USER root
 
-# Start Laravel: run migrations first (no shell access on Render), then serve on $PORT
-CMD ["bash", "-lc", "php artisan migrate --force || true; php -d variables_order=EGPCS -S 0.0.0.0:$PORT -t public"]
+# Copier le script d'entrée
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Passer à l'utilisateur non-root
+USER laravel
+
+# Exposer le port 8000
+EXPOSE 8000
+
+# Commande par défaut
+CMD ["php-fpm"]
