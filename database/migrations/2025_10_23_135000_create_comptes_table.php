@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('numeroCompte')->unique();
             $table->enum("type", ['epargne', 'cheque']);
             $table->string('devise');
+            $table->decimal('solde', 15, 2)->default(0);
             $table->enum("statut", ['actif', 'bloque', 'ferme'])->default('actif');
             $table->uuid('client_id');
             $table->foreign('client_id')->references('id')->on('clients');
