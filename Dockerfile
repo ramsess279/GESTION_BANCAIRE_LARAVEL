@@ -29,11 +29,15 @@ WORKDIR /var/www
 # Copy only composer files first to leverage Docker layer cache
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies (no-dev for production)
-RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
+# Install PHP dependencies (no-dev for production) without running scripts yet (artisan not copied)
+RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --no-scripts --optimize-autoloader
 
 # Copy application code
 COPY . .
+
+# Now that artisan exists, finalize autoload and run post-autoload scripts
+RUN composer dump-autoload --optimize --no-dev --no-interaction && \
+    composer run-script post-autoload-dump || true
 
 # Ensure storage and cache directories are writable
 RUN mkdir -p storage bootstrap/cache && \
