@@ -44,9 +44,12 @@ RUN git config --global --add safe.directory /var/www && composer update --no-in
 # Change ownership to the user after installing dependencies
 RUN chown -R $user:$user /var/www
 
+# Create startup script for PHP built-in web server
+RUN echo '#!/bin/bash\nphp -S 0.0.0.0:80 -t public' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
+
 # Switch to the user
 USER $user
 
-# Expose port 9000 (PHP-FPM default)
-EXPOSE 9000
-CMD ["php-fpm"]
+# Expose port 80 and start PHP built-in web server
+EXPOSE 80
+CMD ["/usr/local/bin/start.sh"]
