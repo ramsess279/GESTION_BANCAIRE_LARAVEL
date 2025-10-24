@@ -16,8 +16,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     nodejs \
-    npm \
-    nginx
+    npm
 
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -42,19 +41,12 @@ COPY . /var/www
 # Install PHP dependencies (as root to avoid permission issues)
 RUN git config --global --add safe.directory /var/www && composer update --no-interaction --no-scripts --no-autoloader
 
-# Copy Nginx configuration
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-
 # Change ownership to the user after installing dependencies
 RUN chown -R $user:$user /var/www
 
 # Switch to the user
 USER $user
 
-# Note: Ownership and permissions are handled by Docker, no need to change manually
-
-# Note: Node.js assets are not built in Docker for Render deployment. Build them locally if needed.
-
-# Expose port 80 and start Nginx and PHP-FPM
-EXPOSE 80
-CMD ["sh", "-c", "php-fpm & nginx -g 'daemon off;'"]
+# Expose port 9000 (PHP-FPM default)
+EXPOSE 9000
+CMD ["php-fpm"]
