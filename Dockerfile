@@ -1,5 +1,5 @@
 # Étape 1: Build des dépendances PHP
-FROM composer:2.6 AS composer-build
+FROM composer:latest AS composer-build
 
 WORKDIR /app
 
@@ -10,11 +10,16 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
 
 # Étape 2: Image finale pour l'application
-FROM php:8.3-fpm-alpine
+FROM php:8.3-fpm-alpine3.20
 
-# Installer les extensions PHP nécessaires
-RUN apk add --no-cache postgresql-dev \
-    && docker-php-ext-install pdo pdo_pgsql
+# Installer les extensions PHP nécessaires et mettre à jour les packages
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+    postgresql-dev \
+    libpq \
+    && docker-php-ext-install pdo pdo_pgsql \
+    && rm -rf /var/cache/apk/*
 
 # Créer un utilisateur non-root
 RUN addgroup -g 1000 laravel && adduser -G laravel -g laravel -s /bin/sh -D laravel
@@ -25,7 +30,7 @@ WORKDIR /var/www/html
 # Copier les dépendances installées depuis l'étape de build
 COPY --from=composer-build /app/vendor ./vendor
 
-# Copier le reste du code de l'applicationrkekktktkttoktokto
+# Copier le reste du code de l'application
 COPY . .
 
 # Créer les répertoires nécessaires et définir les permissions
@@ -73,9 +78,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Passer à l'utilisateur non-root
 USER laravel
 
-
-# Exposer le port 8000
+# Exposer le port
 EXPOSE 8000
 
-# Démarrer le serveur Laravel intégré
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=${PORT:-8000}"]
+# Utiliser le script d'entrée comme point d'entrée
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
