@@ -51,6 +51,12 @@ USER $user
 
 # Note: Node.js assets are not built in Docker for Render deployment. Build them locally if needed.
 
-# Expose port 9000 and start php-fpm server
-EXPOSE 9000
-CMD ["php-fpm"]
+# Install Nginx
+RUN apt-get install -y nginx
+
+# Copy Nginx configuration
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80 and start Nginx and PHP-FPM
+EXPOSE 80
+CMD ["sh", "-c", "php-fpm & nginx -g 'daemon off;'"]
