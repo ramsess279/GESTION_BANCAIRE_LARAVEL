@@ -101,7 +101,7 @@ class CompteController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->numero($search)
-                  ->orWhere('client', $search);
+                  ->client($search);
             });
         }
 

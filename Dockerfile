@@ -44,15 +44,13 @@ RUN mkdir -p storage bootstrap/cache && \
     chown -R www-data:www-data storage bootstrap/cache && \
     chmod -R ug+rwx storage bootstrap/cache
 
-# Try to optimize caches (do not fail the build if env not fully available)
-RUN php artisan config:cache || true && \
-    php artisan route:cache || true && \
-    php artisan view:cache || true && \
-    php artisan storage:link || true
+# Do not generate caches at build-time to avoid stale env (APP_KEY/DB)
+# Keep only storage symlink
+RUN php artisan storage:link || true
 
 # Expose and use Render's PORT
 ENV PORT=8080
 EXPOSE 8080
 
-# Start Laravel using PHP built-in server, binding to Render's $PORT
-CMD ["bash", "-lc", "php -d variables_order=EGPCS -S 0.0.0.0:$PORT -t public"]
+# Start Laravel: run migrations first (no shell access on Render), then serve on $PORT
+CMD ["bash", "-lc", "php artisan migrate --force || true; php -d variables_order=EGPCS -S 0.0.0.0:$PORT -t public"]

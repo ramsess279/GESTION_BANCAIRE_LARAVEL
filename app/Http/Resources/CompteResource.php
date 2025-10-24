@@ -25,7 +25,7 @@ class CompteResource extends JsonResource
             'statut' => $this->statut,
             'motifBlocage' => $this->motifBlocage ?? null,
             'metadata' => [
-                'derniereModification' => $this->updated_at->toISOString(),
+                'derniereModification' => $this->updated_at->toDateTimeString(),
                 'version' => 1,
             ],
         ];
