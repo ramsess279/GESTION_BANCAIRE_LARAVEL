@@ -50,7 +50,7 @@ RUN echo "APP_NAME=Laravel" > .env && \
     echo "DB_PORT=5432" >> .env && \
     echo "DB_DATABASE=gestion_bancaire_fqdq" >> .env && \
     echo "DB_USERNAME=gestion_bancaire_fqdq_user" >> .env && \
-    echo "DB_PASSWORD=aZueE4EOiuxRYSpp0EcGoMeAMgs60MAS" >> .env && \,
+    echo "DB_PASSWORD=aZueE4EOiuxRYSpp0EcGoMeAMgs60MAS" >> .env && \
     echo "" >> .env && \
     echo "CACHE_DRIVER=file" >> .env && \
     echo "SESSION_DRIVER=file" >> .env && \
