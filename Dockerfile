@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.3-fpm
 
 # Arguments defined in docker-compose.yml
 ARG user=laravel
@@ -35,15 +35,19 @@ RUN mkdir -p /home/$user/.composer && \
 # Set working directory
 WORKDIR /var/www
 
-USER $user
-
 # Copy existing application directory contents
 COPY . /var/www
 
-# Note: Ownership and permissions are handled by Docker, no need to change manually
-
-# Install PHP dependencies
+# Install PHP dependencies (as root to avoid permission issues)
 RUN git config --global --add safe.directory /var/www && composer update --no-interaction --no-scripts --no-autoloader
+
+# Change ownership to the user after installing dependencies
+RUN chown -R $user:$user /var/www
+
+# Switch to the user
+USER $user
+
+# Note: Ownership and permissions are handled by Docker, no need to change manually
 
 # Note: Node.js assets are not built in Docker for Render deployment. Build them locally if needed.
 
