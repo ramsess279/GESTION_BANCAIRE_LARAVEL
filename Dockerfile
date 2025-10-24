@@ -1,6 +1,6 @@
-FROM php:8.3-fpm
+FROM php:8.3-cli
 
-# Arguments defined in docker-compose.yml
+# Arguments (optional for local build caching)
 ARG user=laravel
 ARG uid=1000
 
@@ -14,42 +14,41 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpq-dev \
     zip \
-    unzip \
-    nodejs \
-    npm
-
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    unzip && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # Get latest Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Create system user to run Composer and Artisan Commands
-RUN useradd -G www-data,root -u $uid -d /home/$user $user
-RUN mkdir -p /home/$user/.composer && \
-    chown -R $user:$user /home/$user
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www
 
-# Copy existing application directory contents
-COPY . /var/www
+# Copy only composer files first to leverage Docker layer cache
+COPY composer.json composer.lock ./
 
-# Install PHP dependencies (as root to avoid permission issues)
-RUN git config --global --add safe.directory /var/www && composer update --no-interaction --no-scripts --no-autoloader
+# Install PHP dependencies (no-dev for production)
+RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
 
-# Change ownership to the user after installing dependencies
-RUN chown -R $user:$user /var/www
+# Copy application code
+COPY . .
 
-# Create startup script for PHP built-in web server
-RUN echo '#!/bin/bash\nphp -S 0.0.0.0:80 -t public' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
+# Ensure storage and cache directories are writable
+RUN mkdir -p storage bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R ug+rwx storage bootstrap/cache
 
-# Switch to the user
-USER $user
+# Try to optimize caches (do not fail the build if env not fully available)
+RUN php artisan config:cache || true && \
+    php artisan route:cache || true && \
+    php artisan view:cache || true && \
+    php artisan storage:link || true
 
-# Expose port 80 and start PHP built-in web server
-EXPOSE 80
-CMD ["/usr/local/bin/start.sh"]
+# Expose and use Render's PORT
+ENV PORT=8080
+EXPOSE 8080
+
+# Start Laravel using PHP built-in server, binding to Render's $PORT
+CMD ["bash", "-lc", "php -d variables_order=EGPCS -S 0.0.0.0:$PORT -t public"]
